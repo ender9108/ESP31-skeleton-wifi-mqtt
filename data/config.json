@@ -1,0 +1,11 @@
+{
+    "wifiSsid": "",
+    "wifiPassword": "",
+    "mqttHost": "",
+    "mqttPort": 1883,
+    "mqttUsername": "",
+    "mqttPassword": "",
+    "mqttPublishChannel": "marvin/device/action",
+    "mqttSubscribeChannel": "marvin/device/listen",
+    "uuid": ""
+}
