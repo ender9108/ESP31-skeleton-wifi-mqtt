@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>%TITLE%</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" type="text/css" href="bootstrap.min.css">
+  </head>
+  <body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <a class="navbar-brand" href="./">%MODULE_NAME%</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+      </nav>
+
+      <div class="container mt-4">
+        <div class="alert alert-danger %ERROR_HIDDEN%" role="alert">
+            %ERROR_MESSAGE%
+        </div>
+
+        <form action="./save" method="POST" enctype="multipart/form-data">
+            <fieldset>
+                <legend>Wifi</legend>
+                <div class="form-group">
+                    <label for="wifiSsid">SSID</label>
+                    <input type="text" class="form-control" id="wifiSsid" name="wifiSsid" value="%WIFI_SSID%" required>
+                </div>
+                <div class="form-group ">
+                    <label for="wifiPasswd">Password</label>
+                    <input type="text" class="form-control" id="wifiPasswd" name="wifiPasswd" value="%WIFI_PASSWD%" required>
+                </div>
+            </fieldset>
+            <button type="submit" class="btn btn-primary mt-4">Save</button>
+        </form>
+      </div>
+      <script>
+        function changeFieldStatus(isDisabled) {
+            document.querySelector('#mqttHost').disabled = isDisabled;
+            document.querySelector('#mqttPort').disabled = isDisabled;
+            document.querySelector('#mqttUsername').disabled = isDisabled;
+            document.querySelector('#mqttPasswd').disabled = isDisabled;
+            document.querySelector('#mqttPublishChannel').disabled = isDisabled;
+            document.querySelector('#mqttSubscribeChannel').disabled = isDisabled;
+        }
+
+        (function() {
+            if (document.querySelector('#mqttEnable').checked) {
+                changeFieldStatus(true);
+            }
+        })();
+      </script>
+  </body>
+</html>
