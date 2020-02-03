@@ -5,8 +5,8 @@
 #include <ArduinoJson.h>
 #include <ESPAsyncWebServer.h>
 
-#define MQTT_ENABLE false
-#define OTA_ENABLE false
+#define MQTT_ENABLE true
+#define OTA_ENABLE true
 
 #if MQTT_ENABLE == true
 // @todo See large message method in exemple
