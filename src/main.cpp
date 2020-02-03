@@ -45,6 +45,7 @@ AsyncWebServer server(80);
 
 #if MQTT_ENABLE == true
 const char *configFilePath = "/config.json";
+const char *mqttName = "***** MQTT NAME *****";
 #else
 const char *configFilePath = "/config_cc.json";
 #endif
@@ -52,9 +53,6 @@ const bool debug = true;
 const char *wifiApSsid = "***** WIFI AP SSID *****";
 const char *wifiApPassw = "***** WIFI AP PASSW *****";
 const char *appName = "***** APP NAME *****";
-#if MQTT_ENABLE == true
-const char *mqttName = "***** MQTT NAME *****";
-#endif
 #if OTA_ENABLE == true
 const char *otaPasswordHash = "***** MD5 password *****";
 #endif
@@ -139,9 +137,9 @@ bool getConfig() {
         #endif
         !json.containsKey("uuid")
     ) {
-        logger("getConfig");
+        logger(F("getConfig"));
         serializeJson(json, Serial);
-        logger("");
+        logger(F(""));
         logger(F("Key not found in json fille"));
         return false;
     }
@@ -161,25 +159,26 @@ bool getConfig() {
 
     configFile.close();
 
-    logger("wifiSsid : ", false);
+    logger(F("wifiSsid : "), false);
     logger(String(config.wifiSsid));
-    logger("wifiPassword : ", false);
+    logger(F("wifiPassword : "), false);
     logger(String(config.wifiPassword));
     #if MQTT_ENABLE == true
-    logger("mqttHost : ", false);
+    logger(F("mqttHost : "), false);
     logger(String(config.mqttHost));
-    logger("mqttPort : ", false);
+    logger(F("mqttPort : "), false);
     logger(String(config.mqttPort));
-    logger("mqttUsername : ", false);
+    logger(F("mqttUsername : "), false);
     logger(String(config.mqttUsername));
-    logger("mqttPassword : ", false);
+    logger(F("mqttPassword : "), false);
     logger(String(config.mqttPassword));
-    logger("mqttPublishChannel : ", false);
+    logger(F("mqttPublishChannel : "), false);
     logger(String(config.mqttPublishChannel));
-    logger("mqttSubscribeChannel : ", false);
+    logger(F("mqttSubscribeChannel : "), false);
     logger(String(config.mqttSubscribeChannel));
+    logger(F("uuid : "), false);
     #endif
-    logger("uuid : ", false);
+    logger(F("uuid : "), false);
     logger(String(config.uuid));
 
     return true;
@@ -210,7 +209,7 @@ bool setConfig(Config newConfig) {
     File configFile = SPIFFS.open(configFilePath, FILE_WRITE);
     
     if (!configFile) {
-        logger("Failed to open config file for writing");
+        logger(F("Failed to open config file for writing"));
         return false;
     }
 
@@ -218,51 +217,48 @@ bool setConfig(Config newConfig) {
 
     configFile.close();
 
-    delay(100);
-    getConfig();
-
     return true;
 }
 
 bool wifiConnect() {
     unsigned int count = 0;
     WiFi.begin(config.wifiSsid, config.wifiPassword);
-    Serial.print("Try to connect to ");
+    Serial.print(F("Try to connect to "));
     logger(config.wifiSsid);
 
     while (count < 20) {
         if (WiFi.status() == WL_CONNECTED) {
             logger("");
-            Serial.print("WiFi connected (IP : ");  
+            Serial.print(F("WiFi connected (IP : "));  
             Serial.print(WiFi.localIP());
-            logger(")");
-        
+            logger(F(")"));
+
             return true;
         } else {
             delay(500);
-            Serial.print(".");  
+            Serial.print(F("."));  
         }
 
         count++;
     }
 
-    Serial.print("Error connection to ");
+    Serial.print(F("Error connection to "));
     logger(String(config.wifiSsid));
     return false;
 }
 
 bool checkWifiConfigValues() {
-    logger("config.wifiSsid length : ", false);
+    logger(F("config.wifiSsid length : "), false);
     logger(String(strlen(config.wifiSsid)));
 
-    logger("config.wifiPassword length : ", false);
+    logger(F("config.wifiPassword length : "), false);
     logger(String(strlen(config.wifiPassword)));
-    
+
     if ( strlen(config.wifiSsid) > 1 && strlen(config.wifiPassword) > 1 ) {
         return true;
     }
 
-    logger("Ssid and passw not present in SPIFFS");
+    logger(F("Ssid and passw not present in SPIFFS"));
     return false;
 }
 
@@ -274,7 +270,7 @@ bool mqttConnect() {
         logger("Attempting MQTT connection (host: " + String(config.mqttHost) + ")...");
 
         if (mqttClient.connect(mqttName, config.mqttUsername, config.mqttPassword)) {
-            logger("connected !");
+            logger(F("connected !"));
 
             if (strlen(config.mqttSubscribeChannel) > 1) {
                 mqttClient.subscribe(config.mqttSubscribeChannel);
@@ -282,9 +278,9 @@ bool mqttConnect() {
             
             return true;
         } else {
-            logger("failed, rc=", false);
+            logger(F("failed, rc="), false);
             logger(String(mqttClient.state()));
-            logger(" try again in 5 seconds");
+            logger(F("try again in 5 seconds"));
             // Wait 5 seconds before retrying
             delay(5000);
 
@@ -358,7 +354,7 @@ void serverConfig() {
         #if MQTT_ENABLE == true
         request->send(SPIFFS, "/index.html", "text/html", false, processor);
         #else
-        request->send(SPIFFS, "/index_withoutmqtt.html", "text/html", false, processor);
+        request->send(SPIFFS, "/index_cc.html", "text/html", false, processor);
         #endif
     });
     server.on("/bootstrap.min.css", HTTP_GET, [] (AsyncWebServerRequest *request) {
@@ -377,8 +373,6 @@ void serverConfig() {
 
         for (int i = 0 ; i < params ; i++) {
             AsyncWebParameter* p = request->getParam(i);
-
-            Serial.printf("POST[%s]: %s\n", p->name().c_str(), p->value().c_str());
 
             if (p->name() == "wifiSsid") {
                 strlcpy(config.wifiSsid, p->value().c_str(), sizeof(config.wifiSsid));
@@ -421,9 +415,8 @@ void serverConfig() {
 void callback(char* topic, byte* payload, unsigned int length) {
     StaticJsonDocument<256> json;
     deserializeJson(json, payload, length);
-    
-    //serializeJson(json, Serial);
-    char response[256];
+
+    char response[512];
     
     if (json.containsKey("action")) {
         JsonVariant action = json["action"];
@@ -433,7 +426,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
         }
         else if (json["action"] == "restart") {
             sprintf(response, "{\"code\": \"200\", \"actionCalled\": \"%s\", \"payload\": \"Restart in progress\"}", action.as<char *>());
-            restartRequested = millis();
+            restartRequested = getMillis();
         }
         else if (json["action"] == "reset") {
             sprintf(response, "{\"code\": \"200\", \"actionCalled\": \"%s\", \"payload\": \"Reset in progress\"}", action.as<char *>());
@@ -452,14 +445,14 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
 void setup() {
     Serial.begin(115200);
-    logger("Start program !");
+    logger(F("Start program !"));
 
     if (!SPIFFS.begin(true)) {
-        logger("An Error has occurred while mounting SPIFFS");
+        logger(F("An Error has occurred while mounting SPIFFS"));
         return;
     }
 
-    logger("SPIFFS mounted");
+    logger(F("SPIFFS mounted"));
 
     // Get wifi SSID and PASSW from SPIFFS
     if (true == getConfig()) {
@@ -498,13 +491,12 @@ void setup() {
     if (false == startApp) {
         WiFi.mode(WIFI_AP);
         WiFi.softAP(wifiApSsid, wifiApPassw);
-        logger("WiFi AP is ready (IP : ", false);  
+        logger(F("WiFi AP is ready (IP : "), false); 
         logger(WiFi.softAPIP().toString(), false);
-        logger(")");
-
+        logger(F(")"));
         serverConfig();
     } else {
-        logger("App started !");
+        logger(F("App started !"));
     }
 
     #if OTA_ENABLE == true
