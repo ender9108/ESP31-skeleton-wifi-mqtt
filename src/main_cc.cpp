@@ -1,4 +1,3 @@
-#include "main_cc.h"
 #include <Arduino.h>
 #include <SPIFFS.h>
 #include <WiFi.h>
@@ -6,7 +5,13 @@
 #include <ArduinoJson.h>
 #include <ESPAsyncWebServer.h>
 
+#define MQTT_ENABLE true
+#define OTA_ENABLE true
+
 #if MQTT_ENABLE == true
+// @todo See large message method in exemple
+#define MQTT_MAX_PACKET_SIZE 2048
+
 #include <PubSubClient.h>
 #endif
 
