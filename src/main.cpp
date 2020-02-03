@@ -5,8 +5,8 @@
 #include <ArduinoJson.h>
 #include <ESPAsyncWebServer.h>
 
-#define MQTT_ENABLE true
-#define OTA_ENABLE true
+#define MQTT_ENABLE false
+#define OTA_ENABLE false
 
 #if MQTT_ENABLE == true
 // @todo See large message method in exemple
@@ -46,7 +46,7 @@ AsyncWebServer server(80);
 #if MQTT_ENABLE == true
 const char *configFilePath = "/config.json";
 #else
-const char *configFilePath = "/config_withoutmqtt.json";
+const char *configFilePath = "/config_cc.json";
 #endif
 const bool debug = true;
 const char *wifiApSsid = "***** WIFI AP SSID *****";
@@ -56,7 +56,7 @@ const char *appName = "***** APP NAME *****";
 const char *mqttName = "***** MQTT NAME *****";
 #endif
 #if OTA_ENABLE == true
-const char *otaPasswordHash = "***** MD5 password *****"
+const char *otaPasswordHash = "***** MD5 password *****";
 #endif
 
 bool wifiConnected = false;
@@ -66,6 +66,7 @@ String errorMessage = "";
 #if MQTT_ENABLE == true
 bool mqttConnected = false;
 unsigned long restartRequested = 0;
+unsigned long resetRequested = 0;
 #endif
 
 void logger(String message, bool endLine) {
@@ -177,34 +178,34 @@ bool getConfig() {
     logger(String(config.mqttPublishChannel));
     logger("mqttSubscribeChannel : ", false);
     logger(String(config.mqttSubscribeChannel));
-    #endif;
+    #endif
     logger("uuid : ", false);
     logger(String(config.uuid));
 
     return true;
 }
 
-bool setConfig() {
+bool setConfig(Config newConfig) {
     StaticJsonDocument<512> json;
     
-    json["wifiSsid"] = String(config.wifiSsid);
-    json["wifiPassword"] = String(config.wifiPassword);
+    json["wifiSsid"] = String(newConfig.wifiSsid);
+    json["wifiPassword"] = String(newConfig.wifiPassword);
     #if MQTT_ENABLE == true
-    json["mqttEnable"] = config.mqttEnable;
-    json["mqttHost"] = String(config.mqttHost);
-    json["mqttPort"] = config.mqttPort;
-    json["mqttUsername"] = String(config.mqttUsername);
-    json["mqttPassword"] = String(config.mqttPassword);
-    json["mqttPublishChannel"] = String(config.mqttPublishChannel);
-    json["mqttSubscribeChannel"] = String(config.mqttSubscribeChannel);
+    json["mqttEnable"] = newConfig.mqttEnable;
+    json["mqttHost"] = String(newConfig.mqttHost);
+    json["mqttPort"] = newConfig.mqttPort;
+    json["mqttUsername"] = String(newConfig.mqttUsername);
+    json["mqttPassword"] = String(newConfig.mqttPassword);
+    json["mqttPublishChannel"] = String(newConfig.mqttPublishChannel);
+    json["mqttSubscribeChannel"] = String(newConfig.mqttSubscribeChannel);
     #endif
 
-    if (strlen(config.uuid) == 0) {
+    if (strlen(newConfig.uuid) == 0) {
         uint32_t tmpUuid = esp_random();
-        String(tmpUuid).toCharArray(config.uuid, 64);
+        String(tmpUuid).toCharArray(newConfig.uuid, 64);
     }
 
-    json["uuid"] = String(config.uuid);
+    json["uuid"] = String(newConfig.uuid);
 
     File configFile = SPIFFS.open(configFilePath, FILE_WRITE);
     
@@ -401,7 +402,7 @@ void serverConfig() {
             #endif
         }
         // save config
-        setConfig();
+        setConfig(config);
 
         request->send(SPIFFS, "/restart.html", "text/html", false, processor);
     });
@@ -528,23 +529,23 @@ void setup() {
             type = "filesystem";
         }
 
-        SPIFFS.end()
-        Serial.println("Start updating " + type);
+        SPIFFS.end();
+        logger("Start updating " + type);
     }).onEnd([]() {
-        Serial.println("\nEnd");
+        logger(F("\nEnd"));
     }).onProgress([](unsigned int progress, unsigned int total) {
         Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
     }).onError([](ota_error_t error) {
         Serial.printf("Error[%u]: ", error);
-        if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
-        else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
-        else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
-        else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-        else if (error == OTA_END_ERROR) Serial.println("End Failed");
+        if (error == OTA_AUTH_ERROR) logger(F("Auth Failed"));
+        else if (error == OTA_BEGIN_ERROR) logger(F("Begin Failed"));
+        else if (error == OTA_CONNECT_ERROR) logger(F("Connect Failed"));
+        else if (error == OTA_RECEIVE_ERROR) logger(F("Receive Failed"));
+        else if (error == OTA_END_ERROR) logger(F("End Failed"));
     });
 
     ArduinoOTA.begin();
-    #endif;
+    #endif
 }
 
 void loop() {
@@ -557,7 +558,6 @@ void loop() {
 
             mqttClient.loop();
         }
-        #endif
 
         if (restartRequested != 0) {
             if (getMillis() - restartRequested >= 5000 ) {
@@ -570,6 +570,7 @@ void loop() {
                 resetConfig();
             }
         }
+        #endif
     }
 
     #if OTA_ENABLE == true
