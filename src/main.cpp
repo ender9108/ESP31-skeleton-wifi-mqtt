@@ -3,20 +3,19 @@
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <ArduinoJson.h>
-#include <ESPAsyncWebServer.h>
+#include <WebServer.h>
 
 #define MQTT_ENABLE true
 #define OTA_ENABLE true
 
 #if MQTT_ENABLE == true
-// @todo See large message method in exemple
-#define MQTT_MAX_PACKET_SIZE 2048
-
-#include <PubSubClient.h>
+    // @todo See large message method in exemple
+    #define MQTT_MAX_PACKET_SIZE 2048
+    #include <PubSubClient.h>
 #endif
 
 #if OTA_ENABLE == true
-#include <ArduinoOTA.h>
+    #include <ArduinoOTA.h>
 #endif
 
 void logger(String message, bool endLine = true);
@@ -38,23 +37,25 @@ struct Config {
 
 WiFiClient wifiClient;
 #if MQTT_ENABLE == true
-PubSubClient mqttClient;
+    PubSubClient mqttClient;
 #endif
 Config config;
-AsyncWebServer server(80);
+WebServer server(80);
 
 #if MQTT_ENABLE == true
-const char *configFilePath = "/config.json";
-const char *mqttName = "***** MQTT NAME *****";
+    const char *configFilePath = "/config.json";
+    const char *mqttName = "***** MQTT NAME *****";
 #else
-const char *configFilePath = "/config_cc.json";
+    const char *configFilePath = "/config_cc.json";
 #endif
+
 const bool debug = true;
 const char *wifiApSsid = "***** WIFI AP SSID *****";
 const char *wifiApPassw = "***** WIFI AP PASSW *****";
 const char *appName = "***** APP NAME *****";
+
 #if OTA_ENABLE == true
-const char *otaPasswordHash = "***** MD5 password *****";
+    const char *otaPasswordHash = "***** MD5 password *****";
 #endif
 
 bool wifiConnected = false;
@@ -62,9 +63,9 @@ bool startApp = false;
 String errorMessage = "";
 
 #if MQTT_ENABLE == true
-bool mqttConnected = false;
-unsigned long restartRequested = 0;
-unsigned long resetRequested = 0;
+    bool mqttConnected = false;
+    unsigned long restartRequested = 0;
+    unsigned long resetRequested = 0;
 #endif
 
 void logger(String message, bool endLine) {
@@ -296,46 +297,6 @@ bool mqttConnect() {
 }
 #endif
 
-String processor(const String& var){
-    Serial.println(var);
-
-    if (var == "TITLE" || var == "MODULE_NAME"){
-        return String(appName);
-    } else if (var == "WIFI_SSID") {
-        return String(config.wifiSsid);
-    } else if (var == "WIFI_PASSWD") {
-        return String(config.wifiPassword);
-    }
-    #if MQTT_ENABLE == true 
-    else if(var == "MQTT_ENABLE") {
-        if (true == config.mqttEnable) {
-            return String("checked");
-        }
-    } else if (var == "MQTT_HOST") {
-        return String(config.mqttHost);
-    } else if (var == "MQTT_PORT") {
-        return String(config.mqttPort);
-    } else if (var == "MQTT_USERNAME") {
-        return String(config.mqttUsername);
-    } else if (var == "MQTT_PASSWD") {
-        return String(config.mqttPassword);
-    } else if (var == "MQTT_PUB_CHAN") {
-        return String(config.mqttPublishChannel);
-    } else if (var == "MQTT_SUB_CHAN") {
-        return String(config.mqttSubscribeChannel);
-    } 
-    #endif
-    else if (var == "ERROR_MESSAGE") {
-        return errorMessage;
-    } else if (var == "ERROR_HIDDEN") {
-        if (errorMessage.length() == 0) {
-            return String("d-none");
-        }
-    }
-
-    return String();
-}
-
 void restart() {
     logger("Restart ESP");
     ESP.restart();
@@ -349,63 +310,98 @@ void resetConfig() {
     restart();
 }
 
-void serverConfig() {
-    server.on("/", HTTP_GET, [] (AsyncWebServerRequest *request) {
+void handleHome() {
+    String content = "";
+
+    #if MQTT_ENABLE == true
+        char *indexFile = "index.html";
+    #else
+        char *indexFile = "index_cc.html";
+    #endif
+
+    File file = SPIFFS.open(indexFile, FILE_READ);
+
+    if (!file) {
+        logger("Failed to open file \"" + String(indexFile) + "\".");
+        server.send(500, "text/plain", "Internal error");
+    } else {
+        content = file.readString();
+        content.replace("%TITLE%", String(appName));
+        content.replace("%MODULE_NAME%", String(appName));
+        content.replace("%ERROR_MESSAGE%", errorMessage);
+
+        content.replace("%WIFI_SSID%", String(config.wifiSsid));
+        content.replace("%WIFI_PASSWD%", String(config.wifiPassword));
         #if MQTT_ENABLE == true
-        request->send(SPIFFS, "/index.html", "text/html", false, processor);
-        #else
-        request->send(SPIFFS, "/index_cc.html", "text/html", false, processor);
-        #endif
-    });
-    server.on("/bootstrap.min.css", HTTP_GET, [] (AsyncWebServerRequest *request) {
-        request->send(SPIFFS, "/bootstrap.min.css", "text/css");
-    });
-    server.on("/save", HTTP_POST, [] (AsyncWebServerRequest *request) {
-        int params = request->params();
-
-        #if MQTT_ENABLE == true
-        if (request->hasParam("mqttEnable", true)) {
-            config.mqttEnable = true;
-        } else {
-            config.mqttEnable = false;
-        }
-        #endif
-
-        for (int i = 0 ; i < params ; i++) {
-            AsyncWebParameter* p = request->getParam(i);
-
-            if (p->name() == "wifiSsid") {
-                strlcpy(config.wifiSsid, p->value().c_str(), sizeof(config.wifiSsid));
-            } else if (p->name() == "wifiPasswd") {
-                strlcpy(config.wifiPassword, p->value().c_str(), sizeof(config.wifiPassword));
-            } 
-            #if MQTT_ENABLE == true
-            else if (p->name() == "mqttHost") {
-                strlcpy(config.mqttHost, p->value().c_str(), sizeof(config.mqttHost));
-            } else if (p->name() == "mqttPort") {
-                config.mqttPort = p->value().toInt();
-            } else if (p->name() == "mqttUsername") {
-                strlcpy(config.mqttUsername, p->value().c_str(), sizeof(config.mqttUsername));
-            } else if (p->name() == "mqttPasswd") {
-                strlcpy(config.mqttPassword, p->value().c_str(), sizeof(config.mqttPassword));
-            } else if (p->name() == "mqttPublishChannel") {
-                strlcpy(config.mqttPublishChannel, p->value().c_str(), sizeof(config.mqttPublishChannel));
-            } else if (p->name() == "mqttSubscribeChannel") {
-                strlcpy(config.mqttSubscribeChannel, p->value().c_str(), sizeof(config.mqttSubscribeChannel));
+            if (true == config.mqttEnable) {
+                content.replace("%MQTT_ENABLE%", "checked");
+            } else {
+                content.replace("%MQTT_ENABLE%", "");
             }
-            #endif
-        }
-        // save config
-        setConfig(config);
 
-        request->send(SPIFFS, "/restart.html", "text/html", false, processor);
-    });
-    server.on("/restart", HTTP_GET, [] (AsyncWebServerRequest *request) {
-        restart();
-    });
-    server.onNotFound([](AsyncWebServerRequest *request){
-        request->send(SPIFFS, "/404.html", "text/html", false, processor);
-    });
+            content.replace("%MQTT_HOST%", String(config.mqttHost));
+            content.replace("%MQTT_PORT%", String(config.mqttPort));
+            content.replace("%MQTT_USERNAME%", String(config.mqttUsername));
+            content.replace("%MQTT_PASSWD%", String(config.mqttPassword));
+            content.replace("%MQTT_PUB_CHAN%", String(config.mqttPublishChannel));
+            content.replace("%MQTT_SUB_CHAN%", String(config.mqttSubscribeChannel));
+        #endif
+
+        server.send(200, "text/html", content);
+    }
+}
+
+void handleRestart() {
+    String content = "";
+    File file = SPIFFS.open("restart.html", FILE_READ);
+
+    if (!file) {
+        logger("Failed to open file \"restart.html\".");
+        server.send(500, "text/plain", "Internal error");
+        return false;
+    } else {
+        content = file.readString();
+        content.replace("%TITLE%", String(appName));
+        content.replace("%MODULE_NAME%", String(appName));
+
+        server.send(200, "text/html", content);
+    }
+}
+
+void handleCss() {
+    String content = "";
+    File file = SPIFFS.open("bootstrap.min.css", FILE_READ);
+
+    if (!file) {
+        logger("Failed to open file \"bootstrap.min.css\".");
+        server.send(500, "text/plain", "Internal error");
+    } else {
+        server.send(200, "text/html", file.readString());
+    }
+}
+
+void handleNotFound() {
+    String content = "";
+    File file = SPIFFS.open("404.html", FILE_READ);
+
+    if (!file) {
+        logger("Failed to open file \"404.html\".");
+        server.send(500, "text/plain", "Internal error");
+    } else {
+        content = file.readString();
+        content.replace("%TITLE%", String(appName));
+        content.replace("%MODULE_NAME%", String(appName));
+
+        server.send(404, "text/html", content);
+    }
+}
+
+void serverConfig() {
+    server.on("/", handleHome);
+    server.on("/save", handleSave);
+    server.on("/restart", handleRestart);
+    server.on("/bootstrap.min.css", handleCss);
+    server.onNotFound(handleNotFound);
 
     server.begin();
     logger("HTTP server started");
@@ -563,6 +559,8 @@ void loop() {
             }
         }
         #endif
+    } else {
+        server.handleClient();
     }
 
     #if OTA_ENABLE == true
