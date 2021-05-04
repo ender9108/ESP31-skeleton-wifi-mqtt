@@ -33,7 +33,7 @@
             <fieldset class="mt-4">
                 <legend>Mqtt</legend>
                 <div class="form-check mb-4">
-                    <input type="checkbox" value="1" class="form-check-input" id="mqttEnable" name="mqttEnable" onclick="changeFieldStatus(this.checked)" %MQTT_ENABLE%>
+                    <input type="checkbox" value="1" class="form-check-input" id="mqttEnable" name="mqttEnable" onclick="changeFieldStatus(this)" %MQTT_ENABLE%>
                     <label for="mqttEnable" class="form-check-label">Enable MQTT</label>
                 </div>
                 <div class="form-group">
@@ -65,20 +65,14 @@
         </form>
       </div>
       <script>
-        function changeFieldStatus(isDisabled) {
-            document.querySelector('#mqttHost').disabled = isDisabled;
-            document.querySelector('#mqttPort').disabled = isDisabled;
-            document.querySelector('#mqttUsername').disabled = isDisabled;
-            document.querySelector('#mqttPasswd').disabled = isDisabled;
-            document.querySelector('#mqttPublishChannel').disabled = isDisabled;
-            document.querySelector('#mqttSubscribeChannel').disabled = isDisabled;
+        function changeFieldStatus(checkbox) {
+            document.querySelector('#mqttHost').disabled = !checkbox.checked;
+            document.querySelector('#mqttPort').disabled = !checkbox.checked;
+            document.querySelector('#mqttUsername').disabled = !checkbox.checked;
+            document.querySelector('#mqttPasswd').disabled = !checkbox.checked;
+            document.querySelector('#mqttPublishChannel').disabled = !checkbox.checked;
+            document.querySelector('#mqttSubscribeChannel').disabled = !checkbox.checked;
         }
-
-        (function() {
-            if (document.querySelector('#mqttEnable').checked) {
-                changeFieldStatus(true);
-            }
-        })();
       </script>
   </body>
 </html>

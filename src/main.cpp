@@ -6,7 +6,7 @@
 #include <ESPAsyncWebServer.h>
 
 #define MQTT_ENABLE true
-#define OTA_ENABLE true
+#define OTA_ENABLE false
 
 #if MQTT_ENABLE == true
 // @todo See large message method in exemple
@@ -30,8 +30,8 @@ struct Config {
     int  mqttPort = 1883;
     char mqttUsername[32] = "";
     char mqttPassword[64] = "";
-    char mqttPublishChannel[128] = "device/to/marvin";
-    char mqttSubscribeChannel[128] = "marvin/to/device";
+    char mqttPublishChannel[128] = "";
+    char mqttSubscribeChannel[128] = "";
     #endif
     char uuid[64] = "";
 };
@@ -45,14 +45,14 @@ AsyncWebServer server(80);
 
 #if MQTT_ENABLE == true
 const char *configFilePath = "/config.json";
-const char *mqttName = "***** MQTT NAME *****";
+const char *mqttName = "esp32-skeleton";
 #else
 const char *configFilePath = "/config_cc.json";
 #endif
 const bool debug = true;
-const char *wifiApSsid = "***** WIFI AP SSID *****";
-const char *wifiApPassw = "***** WIFI AP PASSW *****";
-const char *appName = "***** APP NAME *****";
+const char *wifiApSsid = "marvinhotspot-esp32-switchonoff";
+const char *wifiApPassw = "123456789";
+const char *appName = "RGB led manager";
 #if OTA_ENABLE == true
 const char *otaPasswordHash = "***** MD5 password *****";
 #endif
