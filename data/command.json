@@ -1,34 +1,33 @@
-{
-    "rgbled": [{
-            "command": "ping",
-            "response": {"value": "pong", "type": "string"}
-        },{
-            "command": "on", 
-            "params": {
-                "r": {"type": "integer"}, 
-                "g": {"type": "integer"}, 
-                "b": {"type": "integer"}
-            },
-            "response": {"value": "ok|nok", "type": "string"}
-        },{
-            "command": "off",
-            "response": {"value": "ok|nok", "type": "string"}
-        }
-    ],
-    "switchonoff": [{
-            "command": "on",
-            "params": {
-                "value": 1,
-                "type": "integer"
-            },
-            "response": {"value": "1", "type": "integer"}
-        },{
-            "command": "off",
-            "params": {
-                "value": 0,
-                "type": "integer"
-            },
-            "response": {"value": "0", "type": "integer"}
-        }
-    ]
-}
+[
+    {
+        "command": "on",
+        "params": {
+            "value": 1,
+            "type": "integer"
+        },
+        "response": {"payload": 1, "type": "integer"},
+        "help": "Turn on light"
+    },{
+        "command": "off",
+        "params": {
+            "value": 0,
+            "type": "integer"
+        },
+        "response": {"payload": 0, "type": "integer"},
+        "help": "Turn off light"
+    },{
+        "command": "ping",
+        "response": {"payload": "pong", "type": "string"},
+        "help": "Chack if module is online"
+    },{
+        "command": "status",
+        "response": {"payload": [0,1], "type": "integer"},
+            "help": "Return light status"
+    },{
+        "command": "restart",
+        "help": "Restart module"
+    },{
+        "command": "reset",
+        "help": "Reset module"
+    }
+]

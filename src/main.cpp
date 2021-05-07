@@ -51,14 +51,18 @@ const char *configFilePath = "/config_cc.json";
 #endif
 const bool debug = true;
 const char *wifiApSsid = "marvinhotspot-esp32-switchonoff";
-const char *wifiApPassw = "123456789";
+const char *wifiApPassw = "M@rvin_Roxx!";
 const char *appName = "RGB led manager";
+const int ledPin = 34;
+
 #if OTA_ENABLE == true
 const char *otaPasswordHash = "***** MD5 password *****";
 #endif
 
 bool wifiConnected = false;
 bool startApp = false;
+int lightStatus = 0;
+
 String errorMessage = "";
 
 #if MQTT_ENABLE == true
@@ -362,6 +366,10 @@ void serverConfig() {
     });
     server.on("/save", HTTP_POST, [] (AsyncWebServerRequest *request) {
         int params = request->params();
+        bool reboot = false;
+
+        Serial.println("/save called");
+        Serial.println("Params" + String(params));
 
         #if MQTT_ENABLE == true
         if (request->hasParam("mqttEnable", true)) {
@@ -373,6 +381,8 @@ void serverConfig() {
 
         for (int i = 0 ; i < params ; i++) {
             AsyncWebParameter* p = request->getParam(i);
+
+            Serial.println(String(p->name()) + " = " + String(p->value()));
 
             if (p->name() == "wifiSsid") {
                 strlcpy(config.wifiSsid, p->value().c_str(), sizeof(config.wifiSsid));
@@ -392,13 +402,22 @@ void serverConfig() {
                 strlcpy(config.mqttPublishChannel, p->value().c_str(), sizeof(config.mqttPublishChannel));
             } else if (p->name() == "mqttSubscribeChannel") {
                 strlcpy(config.mqttSubscribeChannel, p->value().c_str(), sizeof(config.mqttSubscribeChannel));
+            } else if (p->name() == "reboot") {
+                if (p->value() == "1") {
+                    reboot = true;
+                }
             }
             #endif
         }
         // save config
         setConfig(config);
 
-        request->send(SPIFFS, "/restart.html", "text/html", false, processor);
+        if (reboot == true) {
+            request->send(200, "application/json", "{\"status\": \"ok\", \"message\": \"record configuration success\", \"uuid\": \"" + String(config.uuid) + "\"}");
+            restart();
+        } else {
+            request->send(SPIFFS, "/restart.html", "text/html", false, processor);
+        }
     });
     server.on("/restart", HTTP_GET, [] (AsyncWebServerRequest *request) {
         restart();
@@ -411,6 +430,16 @@ void serverConfig() {
     logger("HTTP server started");
 }
 
+void lightOn() {
+    digitalWrite(ledPin, HIGH);
+    lightStatus = 1;
+}
+
+void lightOff() {
+    digitalWrite(ledPin, LOW);
+    lightStatus = 0;
+}
+
 #if MQTT_ENABLE == true
 void callback(char* topic, byte* payload, unsigned int length) {
     StaticJsonDocument<256> json;
@@ -418,22 +447,33 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
     char response[512];
     
-    if (json.containsKey("action")) {
-        JsonVariant action = json["action"];
+    if (json.containsKey("command")) {
+        JsonVariant command = json["command"];
 
-        if (json["action"] == "ping") {
-            sprintf(response, "{\"code\": \"200\", \"actionCalled\": \"%s\" \"payload\": \"pong\"}", action.as<char *>());
+        if (json["command"] == "ping") {
+            sprintf(response, "{\"code\": \"200\", \"command\": \"%s\" \"payload\": \"pong\"}", command.as<char *>());
         }
-        else if (json["action"] == "restart") {
-            sprintf(response, "{\"code\": \"200\", \"actionCalled\": \"%s\", \"payload\": \"Restart in progress\"}", action.as<char *>());
+        else if (json["command"] == "status") {
+            sprintf(response, "{\"code\": \"200\", \"command\": \"%s\", \"payload\": %d}", command.as<char *>(), lightStatus);
+        }
+        else if (json["command"] == "on") {
+            sprintf(response, "{\"code\": \"200\", \"command\": \"%s\", \"payload\": %d}", command.as<char *>(), lightStatus);
+            lightOn();
+        }
+        else if (json["command"] == "off") {
+            sprintf(response, "{\"code\": \"200\", \"command\": \"%s\", \"payload\": %d}", command.as<char *>(), lightStatus);
+            lightOff();
+        }
+        else if (json["command"] == "restart") {
+            sprintf(response, "{\"code\": \"200\", \"command\": \"%s\", \"payload\": \"Restart in progress\"}", command.as<char *>());
             restartRequested = getMillis();
         }
-        else if (json["action"] == "reset") {
-            sprintf(response, "{\"code\": \"200\", \"actionCalled\": \"%s\", \"payload\": \"Reset in progress\"}", action.as<char *>());
+        else if (json["command"] == "reset") {
+            sprintf(response, "{\"code\": \"200\", \"command\": \"%s\", \"payload\": \"Reset in progress\"}", command.as<char *>());
             resetRequested = getMillis();
         }
         else {
-            sprintf(response, "{\"code\": \"404\", \"payload\": \"Action %s not found !\"}", action.as<char *>());
+            sprintf(response, "{\"code\": \"404\", \"payload\": \"Command %s not found !\"}", command.as<char *>());
         }
 
         mqttClient.publish(config.mqttPublishChannel, response);
@@ -549,6 +589,7 @@ void loop() {
             }
 
             mqttClient.loop();
+            mqttClient.publish(config.mqttPublishChannel, "");
         }
 
         if (restartRequested != 0) {
